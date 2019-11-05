@@ -1,17 +1,51 @@
 <?php
 class XPARSE {
 	
-	var $optionVar = array();
-	var $postVar = array();
-	var $extraVar = array();
-	var $template_path;
-	var $default_attachment_image;
+	public $optionVar = array();
+	public $postVar = array();
+	public $extraVar = array();
+	public $template_path;
+	public $default_attachment_image;
 	
 	function __construct() {
 		$this->template_path = get_template_directory() . '/';
 		$this->default_attachment_image = '';
 	}
 	
+    function parsePosts($tpl='<li>[+post_title+]</li>', $args=array()) {
+        $posts = (array)$this->_get_posts_data($args);
+        $content = array();
+        foreach($posts as $i=>$post) {
+            $content[] = xparser()->parseText($tpl, $post);
+        }
+        return implode("\n", $content);
+    }
+
+    function _get_posts_data($args=array()) {
+        if(!isset($args['post_type'])) {
+            $args['post_type'] = 'post';
+        }
+        if(!isset($args['posts_per_page'])) {
+            $args['posts_per_page'] = 5;
+        }
+
+        $wp_query = new WP_Query( $args );
+        if ( !$wp_query->have_posts() ) {
+            return array();
+        }
+
+        global $post;
+        $posts = array();
+        while ( $wp_query->have_posts() ) {
+            $wp_query->the_post();
+            $post->permalink = get_permalink($post->id);
+            $post->post_date_format = date('Y.m.d', strtotime($post->post_date));
+            $posts[] = $post;
+        }
+        wp_reset_postdata();
+        return $posts;
+    }
+
 	function getOptionVars() {
 		$var = wp_load_alloptions();
 		$var['site_url']         = $var['siteurl'];
@@ -60,7 +94,15 @@ class XPARSE {
 	
 	function parse($content) {
 		
-		if(strpos($content,'[(')===false && strpos($content,'[*')===false) return $content;
+        if(strpos($content, '<?php')!==false) {
+            ob_start();
+            // exit($content);
+            eval('?>'.$content);
+            $content = ob_get_clean();
+        }
+		if(strpos($content,'[(')===false && strpos($content,'[*')===false) {
+            return $content;
+        }
 		
 		$optionVars = $this->getOptionVars();
 		$postVars   = $this->getPostVars();
@@ -79,8 +121,10 @@ class XPARSE {
 	
 	function parseFile($tpl_path='') {
 		$tpl_path_full = $this->template_path . $tpl_path;
-		if(is_file($tpl_path_full)) $content = file_get_contents($tpl_path_full);
-		return $this->parse($content);
+		if(is_file($tpl_path_full)) {
+            return  file_get_contents($tpl_path_full);
+        }
+		return '';
 	}
 	
     function parseText($tpl,$ph=array(),$left='[+',$right='+]') {
