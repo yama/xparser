@@ -137,7 +137,7 @@ class XPARSE {
     
     function getSummary($content='') {
         mb_internal_encoding('UTF-8');
-        $delim = 'ÅB';
+        $delim = '„ÄÇ';
         $limit = 120;
         $content = strip_tags($content);
         
